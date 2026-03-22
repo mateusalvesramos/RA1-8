@@ -1,3 +1,18 @@
+# Exceção
+class ErroLexico(Exception):
+    def __init__(self, mensagem, token, i):
+        self.token = token
+        self.posicao = i
+        super().__init__(mensagem)
+    
+    def __str__(self):
+        return f"Erro léxico na posição {self.posicao}: {self.args[0]} -> '{self.token}'"
+
+# Funções auxiliares
+def eh_limite(linha, i):
+    """Verifica se o caractere está antes de um limite (espaço, parenteses, tabulação ou fim da linha)"""
+    return i >= len(linha) or linha[i] in ' \t()\n'
+
 # Estados
 def estado_inicial(linha, i, token, vetor_tokens):
     # Chegou ao fim da linha, não vai para nenhum estado
@@ -16,7 +31,7 @@ def estado_inicial(linha, i, token, vetor_tokens):
     
     # Verificação de divisão real e divisão inteira
     elif token == "/":
-        return estado_barra, i+1, ""
+        return estado_barra, i+1, "/"
 
     # Verificação de indentificador MEM ou RES
     elif token.isalpha() and token.isupper():
@@ -27,30 +42,37 @@ def estado_inicial(linha, i, token, vetor_tokens):
         return estado_numero, i, ""
     
     else:
-        raise ValueError(f"Erro léxico: caractere inválido '{token}' na posição {i}")
+        raise ErroLexico("caractere inválido", token, i) from None
 
 def estado_identificador(linha, i, token, vetor_tokens):
     # Equanto houve letra maiúscula e a linha ainda não estiver no fim...
     while i < len(linha) and (linha[i].isalpha() and linha[i].isupper()):
         token += linha[i]
         i += 1
+
+    if eh_limite(linha, i): 
+        vetor_tokens.append(token)
+        # Posteriormente implementar verificador MEM ou RES, para alocar com tuplas as informações em vetor_tokens
+        return estado_inicial, i, ""
     
-    vetor_tokens.append(token)
-    
-    # Posteriormente implementar verificardor MEM ou RES, para alocar com tuplas as informações em vetor_tokens
-    
-    return estado_inicial, i, ""
+    raise ErroLexico("Identificador deve conter apenas letras maiúsculas", token, i) from None
 
 def estado_numero(linha, i, token, vetor_tokens):
     while i < len(linha) and (linha[i].isdigit()):
         token += linha[i]
         i += 1
-
+    
     if i < len(linha) and linha[i] == ".":
         return estado_ponto, i, token
-
-    vetor_tokens.append(token)
-    return estado_inicial, i, ""
+    
+    if eh_limite(linha, i):
+        vetor_tokens.append(token)
+        return estado_inicial, i, ""
+    
+    if linha[i] == ",":
+        raise ErroLexico("separador decimal inválido (vírgula)", token, i) from None
+    
+    raise ErroLexico("número seguido de caractere inválido", token, i) from None
 
 def estado_ponto(linha, i, token, vetor_tokens):
     if i >= len(linha):
@@ -63,22 +85,31 @@ def estado_ponto(linha, i, token, vetor_tokens):
         while i < len(linha) and linha[i].isdigit():
             token += linha[i]
             i += 1
-    
-        vetor_tokens.append(token)
 
-    return estado_inicial, i, ""
+        if eh_limite(linha, i):
+            vetor_tokens.append(token)
+            return estado_inicial, i, ""
+        
+        raise ErroLexico("número real malformado", token, i) from None
 
 def estado_barra(linha, i, token, vetor_tokens):
     # Quando passado, o i já foi incrementado 1...
-    if i < len(linha) and linha[i] == "/": # Caso seja divisão inteira...
-        token += "//"
+    if i < len(linha) and linha[i] == "/": # Caso seja divisão inteira ("//")...
+        token += "/"
+        # Caso haja um caractere após a barra que não seja " ", "\n", "\t" ou ")"...
+        if not eh_limite(linha, i+1):
+            token += linha[i+1]
+            raise ErroLexico("Operador '//' seguido de caractere inválido.", token, i) from None
         vetor_tokens.append(token)
         return estado_inicial, i + 1, ""
     
-    token = "/"
+    # Caso haja um caractere após a barra que não seja " ", "\n", "\t" ou ")"...
+    if not eh_limite(linha, i):
+            # Atribuindo o caractere inválido para ser mostrado na mensagem de erro
+            token += linha[i+1]
+            raise ErroLexico("Operador '/' seguido de caractere inválido.", token, i) from None
     vetor_tokens.append(token)
     return estado_inicial, i, ""
-
 
 def parseExpressao(linha: str): # Realizar a conversão dos tokens que forem inteiros ou reais para float
     # Funções como estados do autômato finito determinístico (AFD)
@@ -123,21 +154,18 @@ def parseExpressao(linha: str): # Realizar a conversão dos tokens que forem int
 # def salvarTokens(vetor_tokens: list[str], nome_arquivo_saida: str):
     # Salvar em .txtou json os tokens da última execução
 
-# def main():
+def main():
     # Configurar a possibilidade de passar os arquivos txt por linha de comando
     # Organizar e juntar as outras funções
+    with open("expressoes1.txt", "r") as file:
+        linha = file.readlines()
 
-# if __name__ == "__main__":
-    # main()
+    # for linha in testes:
+    #     try:
+    #         tokens = parseExpressao(linha)
+    #         print(f"OK | {linha} -> {tokens}")
+    #     except ErroLexico as e:
+    #         print(f"ERRO | {linha} -> {e}")
 
-# Funções de teste (exemplos):
-# def testar_parseExpressao():
-    # print(parseExpressao("3.14 2.0 +"))
-    # print(parseExpressao("( 5 RES )"))
-
-# def testar_executarExpressao():
-#     memoria = {}
-#     historico = []
-#     print(executarExpressao(["3.0", "2.0", "+"], memoria, historico))
-
-print(parseExpressao("((A B *) (D E *) /)"))
+if __name__ == "__main__":
+    main()
