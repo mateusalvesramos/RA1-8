@@ -1,3 +1,5 @@
+import sys
+
 # Exceção
 class ErroLexico(Exception):
     def __init__(self, mensagem, token, i):
@@ -26,7 +28,20 @@ def estado_inicial(linha, i, token, vetor_tokens):
     
     # Estado de aceitação para os operadores e parênteses
     elif token in "()+-*%^":
-        vetor_tokens.append(token)
+        if token == "(":    
+            vetor_tokens.append(("LPAREN", token))
+        elif token == ")":
+            vetor_tokens.append(("RPAREN", token))
+        elif token == "+":
+            vetor_tokens.append(("OP_ADD", token))
+        elif token == "-":
+            vetor_tokens.append(("OP_SUB", token))
+        elif token == "*":
+            vetor_tokens.append(("OP_MUL", token))
+        elif token == "%":
+            vetor_tokens.append(("OP_MOD", token))
+        elif token == "^":
+            vetor_tokens.append(("OP_POW", token))
         return estado_inicial, i+1, ""
     
     # Verificação de divisão real e divisão inteira
@@ -50,12 +65,14 @@ def estado_identificador(linha, i, token, vetor_tokens):
         token += linha[i]
         i += 1
 
-    if eh_limite(linha, i): 
-        vetor_tokens.append(token)
-        # Posteriormente implementar verificador MEM ou RES, para alocar com tuplas as informações em vetor_tokens
+    if eh_limite(linha, i):
+        if token == "RES":
+            vetor_tokens.append(("KW_RES", token))
+        
+        vetor_tokens.append(("ID", token))
         return estado_inicial, i, ""
     
-    raise ErroLexico("Identificador deve conter apenas letras maiúsculas", token, i) from None
+    raise ErroLexico("identificador deve conter apenas letras maiúsculas", token, i) from None
 
 def estado_numero(linha, i, token, vetor_tokens):
     while i < len(linha) and (linha[i].isdigit()):
@@ -66,7 +83,7 @@ def estado_numero(linha, i, token, vetor_tokens):
         return estado_ponto, i, token
     
     if eh_limite(linha, i):
-        vetor_tokens.append(token)
+        vetor_tokens.append(("NUM", token))
         return estado_inicial, i, ""
     
     if linha[i] == ",":
@@ -78,6 +95,7 @@ def estado_ponto(linha, i, token, vetor_tokens):
     if i >= len(linha):
         return None, i, ""
 
+    # Verificando o caractere seguido do ponto
     if i+1 < len(linha) and linha[i+1].isdigit():
         i+=1
         token += "."
@@ -87,7 +105,7 @@ def estado_ponto(linha, i, token, vetor_tokens):
             i += 1
 
         if eh_limite(linha, i):
-            vetor_tokens.append(token)
+            vetor_tokens.append(("NUM", token))
             return estado_inicial, i, ""
         
         raise ErroLexico("número real malformado", token, i) from None
@@ -100,7 +118,7 @@ def estado_barra(linha, i, token, vetor_tokens):
         if not eh_limite(linha, i+1):
             token += linha[i+1]
             raise ErroLexico("Operador '//' seguido de caractere inválido.", token, i) from None
-        vetor_tokens.append(token)
+        vetor_tokens.append(("OP_DIV_INT", token))
         return estado_inicial, i + 1, ""
     
     # Caso haja um caractere após a barra que não seja " ", "\n", "\t" ou ")"...
@@ -108,7 +126,7 @@ def estado_barra(linha, i, token, vetor_tokens):
             # Atribuindo o caractere inválido para ser mostrado na mensagem de erro
             token += linha[i+1]
             raise ErroLexico("Operador '/' seguido de caractere inválido.", token, i) from None
-    vetor_tokens.append(token)
+    vetor_tokens.append(("OP_DIV", token))
     return estado_inicial, i, ""
 
 def parseExpressao(linha: str): # Realizar a conversão dos tokens que forem inteiros ou reais para float
@@ -146,10 +164,19 @@ def parseExpressao(linha: str): # Realizar a conversão dos tokens que forem int
 # def exibirResultados(resultados: list[float]):
     # Imprime os resultados
 
-# def lerArquivo(nome_arquivo_entrada: str):
+def lerArquivo(nome_arquivo_entrada: str):
     # Criar funções de teste
-    # Verificar erros na abertura de arquivo e axibir mensagens claras
+    # Verificar erros na abertura de arquivo e exibir mensagens claras
     # Return linhas (para o parseExpressao)
+    try:
+        with open(nome_arquivo_entrada, "r") as file:
+            return file.readlines()
+    except FileNotFoundError:
+        print(f"Erro: arquivo '{nome_arquivo_entrada}' não encontrado.")
+        return None
+    except OSError as e:
+        print(f"Erro ao abrir '{nome_arquivo_entrada}': {e}")
+        return None
 
 # def salvarTokens(vetor_tokens: list[str], nome_arquivo_saida: str):
     # Salvar em .txtou json os tokens da última execução
@@ -157,15 +184,22 @@ def parseExpressao(linha: str): # Realizar a conversão dos tokens que forem int
 def main():
     # Configurar a possibilidade de passar os arquivos txt por linha de comando
     # Organizar e juntar as outras funções
-    with open("expressoes1.txt", "r") as file:
-        linha = file.readlines()
 
-    # for linha in testes:
-    #     try:
-    #         tokens = parseExpressao(linha)
-    #         print(f"OK | {linha} -> {tokens}")
-    #     except ErroLexico as e:
-    #         print(f"ERRO | {linha} -> {e}")
+    if len(sys.argv) != 2:
+        print("Erro!\nForma correta de executar: python main.py <arquivo.txt>")
+        return
+    
+    nome_arquivo = sys.argv[1]
+    linhas = lerArquivo(nome_arquivo)
+    if linhas is None:
+        return
+    
+    for linha in linhas:
+        try:
+            tokens = parseExpressao(linha)
+            print(f"OK | {linha} -> {tokens}")
+        except ErroLexico as e:
+            print(f"ERRO | {linha} -> {e}")
 
 if __name__ == "__main__":
     main()
