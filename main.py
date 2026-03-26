@@ -15,6 +15,21 @@ def eh_limite(linha, i):
     """Verifica se o caractere está antes de um limite (espaço, parenteses, tabulação ou fim da linha)"""
     return i >= len(linha) or linha[i] in ' \t()\n'
 
+def valida_parenteses(vetor_tokens, saldo_parenteses):
+    """Valida o fechamento de parênteses de acordo com a saída do analisador léxico"""
+    
+    # Captura o tipo do últim token adicionado ao vetor
+    tipo_token = vetor_tokens[-1][0]
+
+    if tipo_token == "LPAREN":
+        saldo_parenteses += 1
+    elif tipo_token == "RPAREN":
+        saldo_parenteses -= 1
+        if saldo_parenteses < 0:
+            raise ErroLexico("parêntese de fechamento sem abertura", ")", "")
+        
+    return saldo_parenteses
+
 # Estados
 def estado_inicial(linha, i, token, vetor_tokens):
     # Chegou ao fim da linha, não vai para nenhum estado
@@ -68,9 +83,11 @@ def estado_identificador(linha, i, token, vetor_tokens):
     if eh_limite(linha, i):
         if token == "RES":
             vetor_tokens.append(("KW_RES", token))
+            return estado_inicial, i, ""
         
-        vetor_tokens.append(("ID", token))
-        return estado_inicial, i, ""
+        else:
+            vetor_tokens.append(("ID", token))
+            return estado_inicial, i, ""
     
     raise ErroLexico("identificador deve conter apenas letras maiúsculas", token, i) from None
 
@@ -129,23 +146,25 @@ def estado_barra(linha, i, token, vetor_tokens):
     vetor_tokens.append(("OP_DIV", token))
     return estado_inicial, i, ""
 
-def parseExpressao(linha: str): # Realizar a conversão dos tokens que forem inteiros ou reais para float
-    # Funções como estados do autômato finito determinístico (AFD)
-
-    # Usando AFD ler linhas, validar (identificar casos de erro léxico)
-    # e extrair tokens: números reais, operadores, comandos especiais e parênteses
-
-    # Contruir funções de teste
-
-    # return vetor de tokens
-
+def parseExpressao(linha: str):
     vetor_tokens = []
     i = 0
     token = ""
     estado = estado_inicial
+    saldo_parenteses = 0 # Variável para verificação do balanceamento dos parênteses
 
     while estado is not None:
+        tamanho_antes = len(vetor_tokens)
+
+        # Aqui ocorre a mudança de estados, sendo o retorno do estado atual aplicado como "argumento" para o próximo estado
         estado, i, token = estado(linha, i, token, vetor_tokens)
+
+        # Verifica se houve adição de novos tokens no vetor de tokens (evita processamento desnecessário)
+        if len(vetor_tokens) > tamanho_antes:
+            saldo_parenteses = valida_parenteses(vetor_tokens, saldo_parenteses)
+
+    if saldo_parenteses > 0:
+        raise ErroLexico("parênteses desbalanceados", "(", i)
     
     return vetor_tokens
 
@@ -153,7 +172,7 @@ def parseExpressao(linha: str): # Realizar a conversão dos tokens que forem int
     # Usar pilha para avaliar expressoes RPN
     # Memória MEM e histórico de resultados em RES
     # Analisa e aplica operadores + - * / // % ^
-    # Precisão de 64 bits com floar em Python
+    # Precisão de 64 bits com float em Python
     # return resultado da expressão atual
 
 # def gerarAssembly(vetor_tokens:list[str]):
@@ -197,9 +216,9 @@ def main():
     for linha in linhas:
         try:
             tokens = parseExpressao(linha)
-            print(f"OK | {linha} -> {tokens}")
+            print(f"\nOK | {linha} -> {tokens}")
         except ErroLexico as e:
-            print(f"ERRO | {linha} -> {e}")
+            print(f"\nERRO | {linha} -> {e}")
 
 if __name__ == "__main__":
     main()
