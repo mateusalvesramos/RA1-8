@@ -4,10 +4,20 @@
 from lexico import parseExpressao, ErroLexico
 from gerador import executarExpressao, gerarAssembly, ErroGeracaoAssembly
 from io_utils import lerArquivo, salvarTokens, salvarAssembly
-from testes import testarAnalisadorLexico
 from typing import List, Tuple
 
 import sys
+
+def exibirResultados(registros):
+    for registro in registros:
+        status = registro["status"]
+        linha = registro["linha"]
+
+        if status == "ok":
+            print(f"\nOK | {linha} -> {registro['tokens']}")
+            print(f"BLOCO | {registro['bloco']}")
+        else:
+            print(f"\nERRO | {linha} -> {registro['erro']}")
 
 def main():
     # Configurar a possibilidade de passar os arquivos txt por linha de comando
@@ -18,9 +28,6 @@ def main():
         return
     
     nome_arquivo = sys.argv[1]
-    if nome_arquivo == "--testes":
-        testarAnalisadorLexico()
-        return
 
     linhas = lerArquivo(nome_arquivo)
     if linhas is None:
@@ -30,6 +37,7 @@ def main():
     blocos: List[Tuple] = []
     memoria_catalogo: dict = {}
     resultados_exibicao: List[float] = []
+    registros_processamento = []
     houve_erro = False
 
     for linha in linhas:
@@ -42,11 +50,21 @@ def main():
             bloco = executarExpressao(tokens, memoria_catalogo, blocos)
             vetores_tokens.append(tokens)
             resultados_exibicao.append(0.0)
-            print(f"\nOK | {linha} -> {tokens}")
-            print(f"BLOCO | {bloco}")
+            registros_processamento.append({
+                "status": "ok",
+                "linha": linha,
+                "tokens": tokens,
+                "bloco": bloco,
+            })
         except (ErroLexico, ErroGeracaoAssembly) as e:
             houve_erro = True
-            print(f"\nERRO | {linha} -> {e}")
+            registros_processamento.append({
+                "status": "erro",
+                "linha": linha,
+                "erro": str(e),
+            })
+
+    exibirResultados(registros_processamento)
 
     if houve_erro:
         print("\nGeração interrompida: corrija os erros léxicos antes de gerar tokens/Assembly.")
