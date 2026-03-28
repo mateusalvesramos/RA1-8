@@ -219,7 +219,7 @@ def executarExpressao(vetor_tokens: List[Tuple[str, str]], memoria: dict, result
     resultados.append(bloco)
     return bloco
 
-
+# Função principal
 def gerarAssembly(vetores_tokens: List[List[Tuple[str, str]]]):
     if not vetores_tokens:
         raise ErroGeracaoAssembly("não há tokens para gerar Assembly")

@@ -36,7 +36,6 @@ def main():
     vetores_tokens: List[List[Tuple[str, str]]] = []
     blocos: List[Tuple] = []
     memoria_catalogo: dict = {}
-    resultados_exibicao: List[float] = []
     registros_processamento = []
     houve_erro = False
 
@@ -49,7 +48,6 @@ def main():
             tokens = parseExpressao(linha)
             bloco = executarExpressao(tokens, memoria_catalogo, blocos)
             vetores_tokens.append(tokens)
-            resultados_exibicao.append(0.0)
             registros_processamento.append({
                 "status": "ok",
                 "linha": linha,
